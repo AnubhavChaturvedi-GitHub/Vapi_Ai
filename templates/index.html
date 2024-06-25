@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wave Canvas</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #111;
+            overflow: hidden;
+        }
+        
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        
+        #textOverlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 4em;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            user-select: none;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <canvas id="waveCanvas"></canvas>
+        <div id="textOverlay">Vapi_Ai</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("waveCanvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        const maxAmplitude = canvas.height / 4; // Max amplitude of the wave
+        const baseLine = canvas.height / 2; // Vertical center of the canvas
+        let globalTime = 0;
+        const colorMap = ["#673ab7", "#ff9800", "#00bcd4", "#673ab7"];
+
+        navigator.mediaDevices
+            .getUserMedia({ audio: true, video: false })
+            .then((stream) => {
+                const audioContext = new (window.AudioContext ||
+                    window.webkitAudioContext)();
+                const analyser = audioContext.createAnalyser();
+                const microphone = audioContext.createMediaStreamSource(stream);
+                microphone.connect(analyser);
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                const waves = dataArray.slice(0, 250);
+                
+                drawWave(waves, analyser);
+            })
+            .catch((error) => {
+                console.error("Access to microphone denied", error);
+            });
+
+        function drawWave(dataArray, analyser) {
+            // Microphone input or default wave pattern
+            if (dataArray.some((value) => value > 0)) {
+                analyser.getByteFrequencyData(dataArray);
+            } else {
+                for (let i = 0; i < dataArray.length; i++) {
+                    dataArray[i] = (Math.sin(i * 0.1 + globalTime) + 1) * 64;
+                }
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            globalTime += 0.05;
+
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+            gradient.addColorStop(0, "rgba(25, 255, 255, 0.5)");
+            gradient.addColorStop(0.5, "rgba(255, 25, 255, 0.75)");
+            gradient.addColorStop(1, "rgba(255, 255, 25, 0.5)");
+
+            for (let j = 0; j < 4; j++) {
+                ctx.beginPath();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = gradient;
+
+                let x = 0;
+                let sliceWidth = ((canvas.width * 1.0) / dataArray.length);
+                let lastX = 0;
+                let lastY = baseLine;
+
+                for (let i = 0; i < dataArray.length; i++) {
+                    let v = dataArray[i] / 96.0;
+                    let mid = dataArray.length / 2;
+                    let distanceFromMid = Math.abs(i - mid) / mid;
+                    let dampFactor = 1 - Math.pow((2 * i / dataArray.length - 1), 2); // Creates a parabolic falloff
+                    let amplitude = maxAmplitude * dampFactor * (1 - distanceFromMid);
+                    let frequency = (j === 1 ? -1 : 1) * (0.05 + 0.25); // Invert direction for one wave
+                    let baselineSkew = 0.5 * Math.sin(Math.PI * (x / canvas.width)); // Adjust the factor to control the skewness
+                    const y = baseLine + Math.sin(i * frequency + globalTime + j) * amplitude * v;
+
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        let xc = (x + lastX) / 2;
+                        let yc = (y + lastY) / 2;
+                        ctx.quadraticCurveTo(lastX, lastY, xc, yc);
+                    }
+
+                    lastX = x;
+                    lastY = y;
+                    x += sliceWidth;
+                }
+
+                ctx.lineTo(canvas.width, lastY);
+                ctx.stroke();
+            }
+
+            requestAnimationFrame(() => drawWave(dataArray, analyser));
+        }
+    </script>
+</body>
+</html>
