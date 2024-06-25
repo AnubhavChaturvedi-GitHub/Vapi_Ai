@@ -1,6 +1,6 @@
 # Flask Application with Concurrent UI and VAPI
 
-![Application Screenshot](screenshots/app_screenshot.png)
+![Application Screenshot](https://github.com/AnubhavChaturvedi-GitHub/Vapi_Ai/blob/main/Screenshot%202024-06-25%20223340.png)
 
 This project demonstrates a Flask application that serves a basic UI and concurrently runs a Virtual API (VAPI) using threading. The UI is served using Flask's `render_template` function, and the VAPI logic is contained in `Brain/main.py`.
 
